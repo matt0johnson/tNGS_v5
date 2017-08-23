@@ -1,0 +1,48 @@
+workbatch = config["workbatch"]
+
+samples_6q24 = []
+
+for sample in config["samples"]:
+    if "v5" in config["samples"][sample][3]:
+        samples_6q24.append(sample)
+
+rule generate_6q24:
+    input:
+        expand("{workbatch}/assembly/{sample}.realigned.bam", workbatch=workbatch, sample=samples_6q24)
+    output:
+        "{workbatch}/variants/6q24.hc_call.vcf"
+    run:
+        input_string = ""
+        for sample in samples_t1d:
+            input_string += " -I " + config["workbatch"] + "/assembly/" + sample + ".realigned.bam"
+        shell("{java} -Xmx4g -jar {gatk} -T HaplotypeCaller -R {fa} -D {dbsnp_path} -L {ndm_snps_path} -log {workbatch}/logs/{batch_id}_6q24_hc.log {input_string} -o {output} --output_mode EMIT_ALL_SITES")
+
+rule annotate_6q24:
+    input:
+        "{workbatch}/variants/6q24.hc_call.vcf"
+    output:
+        "{workbatch}/variants/filtered.6q24.hc_call.vcf"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantFiltration -R {fa} --filterExpression 'QD < 2.0' --filterName 'QD2' --filterExpression 'MQ < 40.0' --filterName 'MQ40' \
+        --filterExpression 'ReadPosRankSum < -8.0' --filterName 'RPRS-8' --filterExpression 'FS > 60.0' --filterName 'FS60' --filterExpression 'MQRankSum < -12.5' \
+        --filterName 'MQRankSum-12.5' -o {output} --variant {input} -log {workbatch}/logs/{batch_id}_6q24_hc.log")
+
+rule GT_table_6q24:
+    input:
+        "{workbatch}/variants/filtered.6q24.hc_call.vcf"
+    output:
+        "{workbatch}/variants/6q24.GT.table"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantsToTable -R {fa} --variant {input} -o {output} \
+        --allowMissingData -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F AC -F AF -GF GT \
+        -log {workbatch}/logs/{batch_id}_GT_table_6q24.log")
+
+rule AD_table_6q24:
+    input:
+        "{workbatch}/variants/filtered.6q24.hc_call.vcf"
+    output:
+        "{workbatch}/variants/6q24.AD.table"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantsToTable -R {fa} --variant {input} -o {output} \
+        --allowMissingData -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F AC -F AF -GF AD \
+        -log {workbatch}/logs/{batch_id}_AD_table_6q24.log")

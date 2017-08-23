@@ -1,0 +1,15 @@
+batch_id=config["batch_id"]
+
+rule bwamem:
+    output:
+        temp("{workbatch}/assembly/{sample}.sam")
+    threads:
+        4
+    params:
+        "@RG\tID:{sample}\tSM:{sample}"
+    log:
+        "{workbatch}/logs/{sample}.log"
+    run:
+        forward = config["samples"][wildcards.sample][0],
+        reverse = config["samples"][wildcards.sample][1]
+        shell("{bwa} mem -M -t {threads} {fa} -R '{params}\tLB:{batch_id}' {workbatch}/rawdata/{forward} {workbatch}/rawdata/{reverse} > {output} 2>{log}")

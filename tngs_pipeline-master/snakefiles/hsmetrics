@@ -1,0 +1,21 @@
+rule overall_metrics:
+    input:
+        "{workbatch}/assembly/{sample}.realigned.bam"
+    output:
+        "{workbatch}/metrics/hsmetrics/{sample}-{gender}_overall_bait_capture_metrics"
+    run:
+        library = config["samples"][wildcards.sample][3]
+        intervals = ("%s/intervals/%s/grch-37/%s_all_covered_bases.interval_list" % (workbatch,library,library))
+        shell("{java} -Xmx4g -jar {picard} CalculateHsMetrics I={input} O={output} LEVEL=SAMPLE R={fa} BAIT_INTERVALS={intervals} TARGET_INTERVALS={intervals} VALIDATION_STRINGENCY=SILENT")
+
+rule phenotype_metrics:
+    input:
+        "{workbatch}/assembly/{sample}.realigned.bam"
+    output:
+        "{workbatch}/metrics/hsmetrics/{sample}-{gender}-{phenotype}_phenotype_bait_capture_metrics"
+    run:
+        library = config["samples"][wildcards.sample][3]
+        panel = config["samples"][wildcards.sample][4]
+        intervals = ("%s/intervals/%s/grch-37/%s_%s_metrics.interval_list" % (workbatch,library,library,panel))
+        shell("{java} -Xmx4g -jar {picard} CalculateHsMetrics I={input} O={output} LEVEL=SAMPLE R={fa} BAIT_INTERVALS={intervals} TARGET_INTERVALS={intervals} VALIDATION_STRINGENCY=SILENT")
+

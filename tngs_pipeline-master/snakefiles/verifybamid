@@ -1,0 +1,10 @@
+rule verifybamid:
+    input:
+        "{workbatch}/assembly/{sample}.realigned.bam"
+    output:
+        "{workbatch}/metrics/verifybamid/{sample}.selfSM"
+    log:
+        "{workbatch}/logs/{sample}.log"
+    run:
+        library = config["samples"][wildcards.sample][3]
+        shell("verifyBamID --vcf {verifybamid}/{library}_exac_subset.vcf --bam {input} --out {workbatch}/metrics/verifybamid/{wildcards.sample} 2>>{log}")

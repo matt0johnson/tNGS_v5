@@ -1,0 +1,88 @@
+from os.path import join
+
+configfile: "config.yaml"
+
+include: "./bwamem"
+include: "./samtobam"
+include: "./fixmate"
+include: "./markduplicates"
+include: "./realignertargetcreator"
+include: "./indelrealigner"
+include: "./phenotypecoverage"
+include: "./hsmetrics"
+include: "./exomedepth"
+include: "./haplotypecaller"
+include: "./verifybamid"
+include: "./filtervariants"
+include: "./excludeunwanted"
+include: "./excludeartefacts"
+include: "./alamutannotate"
+include: "./t1d"
+include: "./6q24"
+include: "./combinedmetrics"
+
+fa = config["reference_genome"]
+bwa = config["bwa"]
+java = config["java"]
+picard = config["picard"]
+workbatch = config["workbatch"]
+batch_id = config["batch_id"]
+tempfolder = config["tempfolder"]
+gatk = config["gatk"]
+known_indels = config["known_indels"]
+rscript = config["rscript"]
+alamut = config["alamut"]
+python = config["python"]
+samples = config["samples"]
+verifybamid = config["verifybamid"]
+dbsnp_path = config["dbsnp_path"]
+ndm_snps_path = config["ndm_snps_path"]
+type_one_snps_path = config["type_one_snps_path"]
+
+def generate_output_file(folder, suffix,no_params):
+    for sample in config["samples"]:
+        gender = config["samples"][sample][2]
+        panel = config["samples"][sample][4]
+        if no_params == 3:
+            filename = "%s/%s/%s-%s-%s_%s" % (workbatch,folder,sample,gender,panel,suffix)
+        elif no_params ==2:
+            if suffix == "exomedepth.csv" or suffix == "overall_bait_capture_metrics":
+                filename = "%s/%s/%s-%s_%s" % (workbatch,folder,sample,gender,suffix)
+            else:
+                filename = "%s/%s/%s-%s_%s" % (workbatch,folder,sample,panel,suffix)
+        yield filename
+ 
+phenotypes =[]
+for sample in samples:
+    phenotypes.append(config["samples"][sample][4])
+phenotypes = list(set(phenotypes))
+
+if any(sample.startswith("v5") for sample in samples):
+    rule all:
+        input:
+            expand(generate_output_file("variants", "annotated.txt",3)),
+            expand(generate_output_file("variants", "exomedepth.csv",2)),
+            expand(generate_output_file("metrics/phenotypecoverage", "phenotypecoverage",2)),
+            expand(generate_output_file("metrics/hsmetrics", "overall_bait_capture_metrics",2)),
+            expand(generate_output_file("metrics/hsmetrics", "phenotype_bait_capture_metrics",3)),
+            expand("{workbatch}/metrics/verifybamid/{sample}.selfSM",workbatch=workbatch, sample=samples),
+            expand("{workbatch}/variants/t1d.GT.table",workbatch=workbatch),
+            expand("{workbatch}/variants/t1d.AD.table",workbatch=workbatch),
+            expand("{workbatch}/variants/6q24.GT.table",workbatch=workbatch),
+            expand("{workbatch}/variants/6q24.AD.table",workbatch=workbatch),
+            expand("{workbatch}/metrics/{batch_id}_overall_metrics",workbatch=workbatch, batch_id=batch_id),
+            expand("{workbatch}/metrics/duplicates/{batch_id}_overall_duplicates",workbatch=workbatch, batch_id=batch_id),
+            expand("{workbatch}/metrics/{batch_id}_{phenotypes}_phenotype_metrics",workbatch=workbatch, batch_id=batch_id, phenotypes=phenotypes)
+else:
+    rule all:
+        input:
+            expand(generate_output_file("variants", "annotated.txt",3)),
+            expand(generate_output_file("variants", "exomedepth.csv",2)),
+            expand(generate_output_file("metrics/phenotypecoverage", "phenotypecoverage",2)),
+            expand(generate_output_file("metrics/hsmetrics", "overall_bait_capture_metrics",2)),
+            expand(generate_output_file("metrics/hsmetrics", "phenotype_bait_capture_metrics",3)),
+            expand("{workbatch}/metrics/verifybamid/{sample}.selfSM",workbatch=workbatch, sample=samples),
+            expand("{workbatch}/metrics/{batch_id}_overall_metrics",workbatch=workbatch, batch_id=batch_id),
+            expand("{workbatch}/metrics/duplicates/{batch_id}_overall_duplicates",workbatch=workbatch, batch_id=batch_id),
+            expand("{workbatch}/metrics/{batch_id}_{phenotypes}_phenotype_metrics",workbatch=workbatch, batch_id=batch_id, phenotypes=phenotypes)
+

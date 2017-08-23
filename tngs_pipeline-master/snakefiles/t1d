@@ -1,0 +1,48 @@
+workbatch = config["workbatch"]
+
+samples_t1d = []
+
+for sample in config["samples"]:
+    if 'v5' in config["samples"][sample][3]:
+        samples_t1d.append(sample)
+
+rule generate_t1d:
+    input:
+        expand("{workbatch}/assembly/{sample}.realigned.bam", workbatch=workbatch, sample=samples_t1d)
+    output:
+        "{workbatch}/variants/t1d.hc_call.vcf"
+    run:
+        input_string = ""
+        for sample in samples_t1d:
+            input_string += " -I " + config["workbatch"] + "/assembly/" + sample + ".realigned.bam"
+        shell("{java} -Xmx4g -jar {gatk} -T HaplotypeCaller -R {fa} -D {dbsnp_path} -L {type_one_snps_path} -log {workbatch}/logs/{batch_id}_t1d_hc.log {input_string} -o {output} --output_mode EMIT_ALL_SITES")
+
+rule annotate_t1d:
+    input:
+        "{workbatch}/variants/t1d.hc_call.vcf"
+    output:
+        "{workbatch}/variants/filtered.t1d.hc_call.vcf"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantFiltration -R {fa} --filterExpression 'QD < 2.0' --filterName 'QD2' --filterExpression 'MQ < 40.0' --filterName 'MQ40' \
+        --filterExpression 'ReadPosRankSum < -8.0' --filterName 'RPRS-8' --filterExpression 'FS > 60.0' --filterName 'FS60' --filterExpression 'MQRankSum < -12.5' \
+        --filterName 'MQRankSum-12.5' -o {output} --variant {input} -log {workbatch}/logs/{batch_id}_t1d_hc.log")
+
+rule GT_table_t1d:
+    input:
+        "{workbatch}/variants/filtered.t1d.hc_call.vcf"
+    output:
+        "{workbatch}/variants/t1d.GT.table"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantsToTable -R {fa} --variant {input} -o {output} \
+        --allowMissingData -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F AC -F AF -GF GT \
+        -log {workbatch}/logs/{batch_id}_GT_table_t1d.log")
+
+rule AD_table_t1d:
+    input:
+        "{workbatch}/variants/filtered.t1d.hc_call.vcf"
+    output:
+        "{workbatch}/variants/t1d.AD.table"
+    run:
+        shell("{java} -Xmx4g -jar {gatk} -T VariantsToTable -R {fa} --variant {input} -o {output} \
+        --allowMissingData -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F AC -F AF -GF AD \
+        -log {workbatch}/logs/{batch_id}_AD_table_t1d.log")
